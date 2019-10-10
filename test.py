@@ -21,44 +21,32 @@ query = (
     "SELECT questions.id as `q_id`, questions.title as `q_title`, questions.body as `q_body`, answers.id as `a_id`, answers.title as `a_title`, answers.body as `a_body` FROM `bigquery-public-data.stackoverflow.posts_questions` AS `questions` "
     "INNER JOIN `bigquery-public-data.stackoverflow.posts_answers` AS `answers` "
     "ON questions.accepted_answer_id = answers.id "
-    "LIMIT 10"
 )
 # Executes the query
-query_job = client.query(query)  
+query_job = client.query(query)
 
-for row in query_job:  # API request - fetches results
+for row in query_job.result(page_size=100):  # API request - fetches results
     # Row values can be accessed by field name or index
     # assert row[0] == row.name == row["name"]
-    print(row)
+    print(row[2])
 
-#query_job = client.query(QUERY)  # API request
-#rows = query_job.result()  # Waits for query to finish
 
-#for row in rows:
-    #print(row.name)
+# https://www.tensorflow.org/datasets/api_docs/python/tfds/features/text/SubwordTextEncoder
+tokenizer_ans = tfds.features.text.SubwordTextEncoder.build_from_corpus(
+    (en.numpy() for pt, en in train_examples), target_vocab_size=2**13)
 
-# examples, metadata = tfds.load('ted_hrlr_translate/pt_to_en', with_info=True,
-#                                as_supervised=True)
-# train_examples, val_examples = examples['train'], examples['validation']
+tokenizer_pt = tfds.features.text.SubwordTextEncoder.build_from_corpus(
+    (pt.numpy() for pt, en in train_examples), target_vocab_size=2**13)
 
-# for pt, en in train_examples:
-#     print(en.numpy())
+sample_string = 'Transformer is awesome.'
 
-# tokenizer_en = tfds.features.text.SubwordTextEncoder.build_from_corpus(
-#     (en.numpy() for pt, en in train_examples), target_vocab_size=2**13)
+tokenized_string = tokenizer_en.encode(sample_string)
+print ('Tokenized string is {}'.format(tokenized_string))
 
-# tokenizer_pt = tfds.features.text.SubwordTextEncoder.build_from_corpus(
-#     (pt.numpy() for pt, en in train_examples), target_vocab_size=2**13)
+original_string = tokenizer_en.decode(tokenized_string)
+print ('The original string: {}'.format(original_string))
 
-# sample_string = 'Transformer is awesome.'
+assert original_string == sample_string
 
-# tokenized_string = tokenizer_en.encode(sample_string)
-# print ('Tokenized string is {}'.format(tokenized_string))
-
-# original_string = tokenizer_en.decode(tokenized_string)
-# print ('The original string: {}'.format(original_string))
-
-# assert original_string == sample_string
-
-# for ts in tokenized_string:
-#   print ('{} ----> {}'.format(ts, tokenizer_en.decode([ts])))
+for ts in tokenized_string:
+  print ('{} ----> {}'.format(ts, tokenizer_en.decode([ts])))
