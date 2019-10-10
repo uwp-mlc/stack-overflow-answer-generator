@@ -16,16 +16,26 @@ from google.cloud import bigquery
 
 client = bigquery.Client()
 
-# Perform a query.
-QUERY = (
-    'SELECT name FROM `bigquery-public-data.usa_names.usa_1910_2013` '
-    'WHERE state = "TX" '
-    'LIMIT 100')
-query_job = client.query(QUERY)  # API request
-rows = query_job.result()  # Waits for query to finish
+# Query to join on answer ID and select id, title, body from both tables
+query = (
+    "SELECT questions.id as `q_id`, questions.title as `q_title`, questions.body as `q_body`, answers.id as `a_id`, answers.title as `a_title`, answers.body as `a_body` FROM `bigquery-public-data.stackoverflow.posts_questions` AS `questions` "
+    "INNER JOIN `bigquery-public-data.stackoverflow.posts_answers` AS `answers` "
+    "ON questions.accepted_answer_id = answers.id "
+    "LIMIT 10"
+)
+# Executes the query
+query_job = client.query(query)  
 
-for row in rows:
-    print(row.name)
+for row in query_job:  # API request - fetches results
+    # Row values can be accessed by field name or index
+    # assert row[0] == row.name == row["name"]
+    print(row)
+
+#query_job = client.query(QUERY)  # API request
+#rows = query_job.result()  # Waits for query to finish
+
+#for row in rows:
+    #print(row.name)
 
 # examples, metadata = tfds.load('ted_hrlr_translate/pt_to_en', with_info=True,
 #                                as_supervised=True)
