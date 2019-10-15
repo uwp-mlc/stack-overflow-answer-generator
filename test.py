@@ -9,6 +9,7 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 import os, pickle
+from zipfile import ZipFile
 
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.abspath("./My Project 63888-29e738f88cfa.json")
 
@@ -50,19 +51,19 @@ def printx(x, counter):
 # filehandler = open("./tokenizer_a.pkl", 'wb', pickle.HIGHEST_PROTOCOL)
 # pickle.dump(tokenizer_a, filehandler)
 
-filehandler = open("./1m/tokenizer_q.pkl", 'rb', pickle.HIGHEST_PROTOCOL)
-tokenizer_q = pickle.load(filehandler)
+with ZipFile("./1m/tokenizer_q.zip").open("tokenizer_q.pkl", 'r') as filehandler:
+    tokenizer_q = pickle.load(filehandler)
 
-sample_string = '<p>Transformer is awesome.</p>'
+    sample_string = '<p>Transformer is awesome.</p>'
 
-tokenized_string = tokenizer_q.encode(sample_string)
-print ('Tokenized string is {}'.format(tokenized_string))
+    tokenized_string = tokenizer_q.encode(sample_string)
+    print ('Tokenized string is {}'.format(tokenized_string))
 
-original_string = tokenizer_q.decode(tokenized_string)
-print ('The original string: {}'.format(original_string))
+    original_string = tokenizer_q.decode(tokenized_string)
+    print ('The original string: {}'.format(original_string))
 
-assert original_string == sample_string
+    assert original_string == sample_string
 
-for ts in tokenized_string:
+    for ts in tokenized_string:
 
-  print ('{} ----> {}'.format(ts, tokenizer_q.decode([ts])))
+        print ('{} ----> {}'.format(ts, tokenizer_q.decode([ts])))
