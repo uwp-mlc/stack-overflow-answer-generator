@@ -64,4 +64,5 @@ print ('The original string: {}'.format(original_string))
 assert original_string == sample_string
 
 for ts in tokenized_string:
+
   print ('{} ----> {}'.format(ts, tokenizer_q.decode([ts])))
