@@ -10,7 +10,6 @@ tensorflow = "*"
 tensorflow-datasets = "*"
 matplotlib = "*"
 google-cloud-bigquery = "*"
-beautifulsoup4 = "*"
 
 [requires]
 python_version = "3.7"
