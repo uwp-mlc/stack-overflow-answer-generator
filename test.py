@@ -58,10 +58,16 @@ tokenizer_q = None
 tokenizer_a = None
 
 if LOAD_TOKENIZERS:
+    # print("Loading question tokenizer...")
+    # tokenizer_q = pickle.load(ZipFile("./1m/tokenizer_q.zip").open("tokenizer_q.pkl", 'r'))
+    # print("Loading answer tokenizer...")
+    # tokenizer_a = pickle.load(ZipFile("./1m/tokenizer_a.zip").open("tokenizer_a.pkl", 'r'))
+    # print("Finished loading tokenizers")
+
     print("Loading question tokenizer...")
-    tokenizer_q = pickle.load(ZipFile("./1m/tokenizer_q.zip").open("tokenizer_q.pkl", 'r'))
+    tokenizer_q = pickle.load(open("./200k/tokenizer_q.pkl", 'rb'))
     print("Loading answer tokenizer...")
-    tokenizer_a = pickle.load(ZipFile("./1m/tokenizer_a.zip").open("tokenizer_a.pkl", 'r'))
+    tokenizer_a = pickle.load(open("./200k/tokenizer_a.pkl", 'rb'))
     print("Finished loading tokenizers")
 
     sample_string = '<p>Transformer is awesome.</p>'
@@ -92,7 +98,7 @@ def encode(lang1, lang2):
     lang2 = [tokenizer_a.vocab_size] + tokenizer_a.encode(
         lang2.numpy()) + [tokenizer_a.vocab_size+1]
     
-    return lang1, lang2
+    return [lang1], [lang2]
 
 MAX_LENGTH = 40
 
@@ -102,7 +108,7 @@ def filter_max_length(x, y, max_length=MAX_LENGTH):
 
 def tf_encode(q, a):
     # NOTE may need to remove [] on q and a
-    return tf.py_function(encode, [[q], [a]], [tf.int64, tf.int64])
+    return tf.py_function(encode, [a, q], [tf.int64, tf.int64])
 
 
 pos_encoding = positional_encoding(50, 512)
@@ -230,8 +236,8 @@ d_model = 128
 dff = 512
 num_heads = 8
 
-input_vocab_size = tokenizer_a.vocab_size + 2
-target_vocab_size = tokenizer_q.vocab_size + 2
+input_vocab_size = tokenizer_q.vocab_size + 2
+target_vocab_size = tokenizer_a.vocab_size + 2
 dropout_rate = 0.1
 
 learning_rate = CustomSchedule(d_model)
@@ -320,11 +326,11 @@ def train_step(inp, tar):
                                  dec_padding_mask)
     loss = loss_function(tar_real, predictions)
 
-  gradients = tape.gradient(loss, transformer.trainable_variables)    
-  optimizer.apply_gradients(zip(gradients, transformer.trainable_variables))
-  
-  train_loss(loss)
-  train_accuracy(tar_real, predictions)
+    gradients = tape.gradient(loss, transformer.trainable_variables)    
+    optimizer.apply_gradients(zip(gradients, transformer.trainable_variables))
+    
+    train_loss(loss)
+    train_accuracy(tar_real, predictions)
 
 for epoch in range(EPOCHS):
     start = time.time()
