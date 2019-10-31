@@ -19,15 +19,18 @@ from optimizer import CustomSchedule
 
 client = bigquery.Client()
 
+
+
 # Query to join on answer ID and select id, title, body from both tables
 query = (
     "SELECT questions.id as `q_id`, questions.title as `q_title`, questions.body as `q_body`, answers.id as `a_id`, answers.title as `a_title`, answers.body as `a_body` FROM `bigquery-public-data.stackoverflow.posts_questions` AS `questions` "
     "INNER JOIN `bigquery-public-data.stackoverflow.posts_answers` AS `answers` "
     "ON questions.accepted_answer_id = answers.id "
-    "LIMIT 1000"
+    "LIMIT 100"
 )
 # Executes the query
 query_job = client.query(query)
+
 
 
 # for row in query_job.result(page_size=100):  # API request - fetches results
@@ -108,15 +111,41 @@ if LOAD_DATASETS:
 else:
     print("Set to not load datasets")
 
+print(tokenizer_q.vocab_size)
+
+
 BUFFER_SIZE = 20000
 BATCH_SIZE = 64
 
-def encode(lang1, lang2):
-    lang1 = [tokenizer_q.vocab_size] + tokenizer_q.encode(
-        lang1.numpy()) + [tokenizer_q.vocab_size+1]
+test_mat_q = []
+test_mat_a = []
 
-    lang2 = [tokenizer_a.vocab_size] + tokenizer_a.encode(
-        lang2.numpy()) + [tokenizer_a.vocab_size+1]
+for x in query_job.result():
+    test_mat_q.append(tokenizer_q.encode(x[2].encode()))
+    test_mat_a.append(tokenizer_a.encode(x[5].encode()))
+
+
+ds_q = tf.data.Dataset.from_generator(lambda: test_mat_q, tf.int64, output_shapes=[None])
+ds_q = ds_q.padded_batch(
+    BATCH_SIZE,
+    padded_shapes=[-1])
+
+ds_a = tf.data.Dataset.from_generator(lambda: test_mat_a, tf.int64, output_shapes=[None])
+ds_a = ds_a.padded_batch(
+    BATCH_SIZE,
+    padded_shapes=[-1])
+
+
+def encode(lang1, lang2):
+    # lang1 = [tokenizer_q.vocab_size] + tokenizer_q.encode(
+    #     lang1.numpy()) + [tokenizer_q.vocab_size+1]
+
+    # lang2 = [tokenizer_a.vocab_size] + tokenizer_a.encode(
+    #     lang2.numpy()) + [tokenizer_a.vocab_size+1]
+
+    lang1 = [tokenizer_q.vocab_size] + lang1 + [tokenizer_q.vocab_size+1]
+
+    lang2 = [tokenizer_a.vocab_size] + lang2 + [tokenizer_a.vocab_size+1]
     
     return lang1, lang2
 
@@ -352,9 +381,44 @@ def train_step(inp, tar):
     train_loss(loss)
     train_accuracy(tar_real, predictions)
 
-if __name__ == "__main__":
-    for epoch in range(EPOCHS):
-        start = time.time()
+for epoch in range(EPOCHS):
+    start = time.time()
+    
+    train_loss.reset_states()
+    train_accuracy.reset_states()
+    
+    # inp -> portuguese, tar -> english
+    for (batch, (inp, tar)) in enumerate(zip(ds_q, ds_a)):
+        
+        # inp, tar = tf_encode(query[2].encode(), query[5].encode())
+        
+        # inp and tar must be
+#         (<tf.Tensor: id=207688, shape=(64, 40), dtype=int64, numpy=
+#  array([[8214, 1259,    5, ...,    0,    0,    0],
+#         [8214,  299,   13, ...,    0,    0,    0],
+#         [8214,   59,    8, ...,    0,    0,    0],
+#         ...,
+#         [8214,   95,    3, ...,    0,    0,    0],
+#         [8214, 5157,    1, ...,    0,    0,    0],
+#         [8214, 4479, 7990, ...,    0,    0,    0]])>,
+#  <tf.Tensor: id=207689, shape=(64, 40), dtype=int64, numpy=
+#  array([[8087,   18,   12, ...,    0,    0,    0],
+#         [8087,  634,   30, ...,    0,    0,    0],
+#         [8087,   16,   13, ...,    0,    0,    0],
+#         ...,
+#         [8087,   12,   20, ...,    0,    0,    0],
+#         [8087,   17, 4981, ...,    0,    0,    0],
+#         [8087,   12, 5453, ...,    0,    0,    0]])>)
+        train_step(inp, tar)
+        
+        if batch % 50 == 0:
+            print ('Epoch {} Batch {} Loss {:.4f} Accuracy {:.4f}'.format(
+                epoch + 1, batch, train_loss.result(), train_accuracy.result()))
+        
+    if (epoch + 1) % 5 == 0:
+        ckpt_save_path = ckpt_manager.save()
+        print ('Saving checkpoint for epoch {} at {}'.format(epoch+1,
+                                                            ckpt_save_path))
         
         train_loss.reset_states()
         train_accuracy.reset_states()
