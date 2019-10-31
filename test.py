@@ -12,8 +12,8 @@ import matplotlib.pyplot as plt
 import os, pickle
 from zipfile import ZipFile
 
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.abspath("./My Project 63888-5efd88711631.json")
-
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.abspath("./My Project 63888-29e738f88cfa.json")
+ 
 from google.cloud import bigquery
 from optimizer import CustomSchedule
 
@@ -54,6 +54,7 @@ def printx(x, counter):
 # filehandler = open("./tokenizer_a.pkl", 'wb', pickle.HIGHEST_PROTOCOL)
 # pickle.dump(tokenizer_a, filehandler)
 LOAD_TOKENIZERS = True
+LOAD_DATASETS = True
 tokenizer_q = None
 tokenizer_a = None
 
@@ -87,6 +88,25 @@ if LOAD_TOKENIZERS:
 else:
     print("Set to not load tokenizers")
 
+BATCH_SIZE = 64
+
+if LOAD_DATASETS:
+    print("Loading question dataset...")
+    
+    train_q = pickle.load(open("./questions.data", 'rb'))
+    train_q = tf.data.Dataset.from_generator(lambda: train_q, tf.int32, output_shapes=[None]) #.padded_batch(
+    #     BATCH_SIZE, padded_shapes=([-1], [-1]))
+    for value in train_q.take(2):
+        print(value)
+    print("Loading answer dataset...")
+    train_a = pickle.load(open("./answers.data", 'rb'))
+    train_a = tf.data.Dataset.from_generator(lambda: train_a, tf.int32, output_shapes=[None]).padded_batch(
+        BATCH_SIZE, padded_shapes=([-1], [-1]))
+    
+    print("Finished loading datasets")
+
+else:
+    print("Set to not load datasets")
 
 BUFFER_SIZE = 20000
 BATCH_SIZE = 64
@@ -98,7 +118,7 @@ def encode(lang1, lang2):
     lang2 = [tokenizer_a.vocab_size] + tokenizer_a.encode(
         lang2.numpy()) + [tokenizer_a.vocab_size+1]
     
-    return [lang1], [lang2]
+    return lang1, lang2
 
 MAX_LENGTH = 40
 
@@ -332,141 +352,48 @@ def train_step(inp, tar):
     train_loss(loss)
     train_accuracy(tar_real, predictions)
 
-for epoch in range(EPOCHS):
-    start = time.time()
-    
-    train_loss.reset_states()
-    train_accuracy.reset_states()
-    
-    # inp -> portuguese, tar -> english
-    for (batch, (query)) in enumerate(query_job.result()):
+if __name__ == "__main__":
+    for epoch in range(EPOCHS):
+        start = time.time()
         
-        inp, tar = tf_encode(query[2].encode(), query[5].encode())
-        # inp and tar must be
-#         (<tf.Tensor: id=207688, shape=(64, 40), dtype=int64, numpy=
-#  array([[8214, 1259,    5, ...,    0,    0,    0],
-#         [8214,  299,   13, ...,    0,    0,    0],
-#         [8214,   59,    8, ...,    0,    0,    0],
-#         ...,
-#         [8214,   95,    3, ...,    0,    0,    0],
-#         [8214, 5157,    1, ...,    0,    0,    0],
-#         [8214, 4479, 7990, ...,    0,    0,    0]])>,
-#  <tf.Tensor: id=207689, shape=(64, 40), dtype=int64, numpy=
-#  array([[8087,   18,   12, ...,    0,    0,    0],
-#         [8087,  634,   30, ...,    0,    0,    0],
-#         [8087,   16,   13, ...,    0,    0,    0],
-#         ...,
-#         [8087,   12,   20, ...,    0,    0,    0],
-#         [8087,   17, 4981, ...,    0,    0,    0],
-#         [8087,   12, 5453, ...,    0,    0,    0]])>)
-        train_step(inp, tar)
+        train_loss.reset_states()
+        train_accuracy.reset_states()
         
-        if batch % 50 == 0:
-            print ('Epoch {} Batch {} Loss {:.4f} Accuracy {:.4f}'.format(
-                epoch + 1, batch, train_loss.result(), train_accuracy.result()))
-        
-    if (epoch + 1) % 5 == 0:
-        ckpt_save_path = ckpt_manager.save()
-        print ('Saving checkpoint for epoch {} at {}'.format(epoch+1,
-                                                            ckpt_save_path))
-        
-    print ('Epoch {} Loss {:.4f} Accuracy {:.4f}'.format(epoch + 1, 
-                                                    train_loss.result(), 
-                                                    train_accuracy.result()))
+        # inp -> portuguese, tar -> english
+        for (batch, (query)) in enumerate(query_job.result()):
+            
+            inp, tar = tf_encode(train_q, train_a)
+            # inp and tar must be
+    #         (<tf.Tensor: id=207688, shape=(64, 40), dtype=int64, numpy=
+    #  array([[8214, 1259,    5, ...,    0,    0,    0],
+    #         [8214,  299,   13, ...,    0,    0,    0],
+    #         [8214,   59,    8, ...,    0,    0,    0],
+    #         ...,
+    #         [8214,   95,    3, ...,    0,    0,    0],
+    #         [8214, 5157,    1, ...,    0,    0,    0],
+    #         [8214, 4479, 7990, ...,    0,    0,    0]])>,
+    #  <tf.Tensor: id=207689, shape=(64, 40), dtype=int64, numpy=
+    #  array([[8087,   18,   12, ...,    0,    0,    0],
+    #         [8087,  634,   30, ...,    0,    0,    0],
+    #         [8087,   16,   13, ...,    0,    0,    0],
+    #         ...,
+    #         [8087,   12,   20, ...,    0,    0,    0],
+    #         [8087,   17, 4981, ...,    0,    0,    0],
+    #         [8087,   12, 5453, ...,    0,    0,    0]])>)
+            train_step(inp, tar)
+            
+            if batch % 50 == 0:
+                print ('Epoch {} Batch {} Loss {:.4f} Accuracy {:.4f}'.format(
+                    epoch + 1, batch, train_loss.result(), train_accuracy.result()))
+            
+        if (epoch + 1) % 5 == 0:
+            ckpt_save_path = ckpt_manager.save()
+            print ('Saving checkpoint for epoch {} at {}'.format(epoch+1,
+                                                                ckpt_save_path))
+            
+        print ('Epoch {} Loss {:.4f} Accuracy {:.4f}'.format(epoch + 1, 
+                                                        train_loss.result(), 
+                                                        train_accuracy.result()))
 
-    print ('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
+        print ('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
 
-def evaluate(inp_sentence):
-  start_token = [tokenizer_a.vocab_size]
-  end_token = [tokenizer_a.vocab_size + 1]
-  
-  # inp sentence is portuguese, hence adding the start and end token
-  inp_sentence = start_token + tokenizer_a.encode(inp_sentence) + end_token
-  encoder_input = tf.expand_dims(inp_sentence, 0)
-  
-  # as the target is english, the first word to the transformer should be the
-  # english start token.
-  decoder_input = [tokenizer_q.vocab_size]
-  output = tf.expand_dims(decoder_input, 0)
-    
-  for i in range(MAX_LENGTH):
-    enc_padding_mask, combined_mask, dec_padding_mask = create_masks(
-        encoder_input, output)
-  
-    # predictions.shape == (batch_size, seq_len, vocab_size)
-    predictions, attention_weights = transformer(encoder_input, 
-                                                 output,
-                                                 False,
-                                                 enc_padding_mask,
-                                                 combined_mask,
-                                                 dec_padding_mask)
-    
-    # select the last word from the seq_len dimension
-    predictions = predictions[: ,-1:, :]  # (batch_size, 1, vocab_size)
-
-    predicted_id = tf.cast(tf.argmax(predictions, axis=-1), tf.int32)
-    
-    # return the result if the predicted_id is equal to the end token
-    if predicted_id == tokenizer_en.vocab_size+1:
-      return tf.squeeze(output, axis=0), attention_weights
-    
-    # concatentate the predicted_id to the output which is given to the decoder
-    # as its input.
-    output = tf.concat([output, predicted_id], axis=-1)
-
-  return tf.squeeze(output, axis=0), attention_weights
-
-def plot_attention_weights(attention, sentence, result, layer):
-  fig = plt.figure(figsize=(16, 8))
-  
-  sentence = tokenizer_pt.encode(sentence)
-  
-  attention = tf.squeeze(attention[layer], axis=0)
-  
-  for head in range(attention.shape[0]):
-    ax = fig.add_subplot(2, 4, head+1)
-    
-    # plot the attention weights
-    ax.matshow(attention[head][:-1, :], cmap='viridis')
-
-    fontdict = {'fontsize': 10}
-    
-    ax.set_xticks(range(len(sentence)+2))
-    ax.set_yticks(range(len(result)))
-    
-    ax.set_ylim(len(result)-1.5, -0.5)
-        
-    ax.set_xticklabels(
-        ['<start>']+[tokenizer_pt.decode([i]) for i in sentence]+['<end>'], 
-        fontdict=fontdict, rotation=90)
-    
-    ax.set_yticklabels([tokenizer_en.decode([i]) for i in result 
-                        if i < tokenizer_en.vocab_size], 
-                       fontdict=fontdict)
-    
-    ax.set_xlabel('Head {}'.format(head+1))
-  
-  plt.tight_layout()
-  plt.show()
-
-def translate(sentence, plot=''):
-  result, attention_weights = evaluate(sentence)
-  
-  predicted_sentence = tokenizer_en.decode([i for i in result 
-                                            if i < tokenizer_en.vocab_size])  
-
-  print('Input: {}'.format(sentence))
-  print('Predicted translation: {}'.format(predicted_sentence))
-  
-  if plot:
-    plot_attention_weights(attention_weights, sentence, result, plot)
-
-
-query = (
-    "SELECT questions.id as `q_id`, questions.title as `q_title`, questions.body as `q_body`, answers.id as `a_id`, answers.title as `a_title`, answers.body as `a_body` FROM `bigquery-public-data.stackoverflow.posts_questions` AS `questions` "
-    "INNER JOIN `bigquery-public-data.stackoverflow.posts_answers` AS `answers` "
-    "ON questions.accepted_answer_id = answers.id "
-    "LIMIT 1000"
-)
-# Executes the query
-query_job = client.query(query)
