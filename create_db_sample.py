@@ -10,7 +10,6 @@ client = bigquery.Client()
 db_client = MongoClient('184.100.31.146', 27017)
 db = db_client['tokenized_strings']
 collection = db['tokenized_collection']
-collection.delete_many({})
 
 import uuid
 
@@ -76,10 +75,12 @@ if __name__ == "__main__":
     queue = []  # a queue for our current worker async results, a deque would be faster
 
     def pool_job(q, count):
-        collection.insert_one({"_id": count, "claim": get_id()})
-        if collection.find({"_id": count}).next()['claim'] != get_id():
-            return
-        else:
+        db_client.fsync(1, lock=True)
+        # collection.insert_one({"_id": count, "claim": get_id()})
+        # if collection.find({"_id": count}).next()['claim'] != get_id():
+        #     return
+        # else:
+        #     print(count)
 
         queue.append(pool.apply_async(
             work, [q[2].encode(), q[5].encode(), tokenizer_q, tokenizer_a]))
@@ -95,7 +96,8 @@ if __name__ == "__main__":
                          "question": question,
                          "a_id": q[3],
                          "answer": answer}
-                collection.update({'_id':count}, {"$set": entry}, upsert=False)
+                collection.replace_one({'_id':count},  entry, upsert=False)
+        db_client.fsync(1, lock=False)
 
     for q in query_job.result():
         count += 1
