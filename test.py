@@ -13,7 +13,7 @@ import os, pickle
 from zipfile import ZipFile
 
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.abspath("./My Project 63888-29e738f88cfa.json")
- 
+
 from google.cloud import bigquery
 from optimizer import CustomSchedule
 
@@ -97,14 +97,8 @@ if LOAD_DATASETS:
     print("Loading question dataset...")
     
     train_q = pickle.load(open("./questions.data", 'rb'))
-    train_q = tf.data.Dataset.from_generator(lambda: train_q, tf.int32, output_shapes=[None]) #.padded_batch(
-    #     BATCH_SIZE, padded_shapes=([-1], [-1]))
-    for value in train_q.take(2):
-        print(value)
     print("Loading answer dataset...")
     train_a = pickle.load(open("./answers.data", 'rb'))
-    train_a = tf.data.Dataset.from_generator(lambda: train_a, tf.int32, output_shapes=[None]).padded_batch(
-        BATCH_SIZE, padded_shapes=([-1], [-1]))
     
     print("Finished loading datasets")
 
@@ -117,20 +111,13 @@ print(tokenizer_q.vocab_size)
 BUFFER_SIZE = 20000
 BATCH_SIZE = 64
 
-test_mat_q = []
-test_mat_a = []
 
-for x in query_job.result():
-    test_mat_q.append(tokenizer_q.encode(x[2].encode()))
-    test_mat_a.append(tokenizer_a.encode(x[5].encode()))
-
-
-ds_q = tf.data.Dataset.from_generator(lambda: test_mat_q, tf.int64, output_shapes=[None])
+ds_q = tf.data.Dataset.from_generator(lambda: train_q, tf.int64, output_shapes=[None])
 ds_q = ds_q.padded_batch(
     BATCH_SIZE,
     padded_shapes=[-1])
 
-ds_a = tf.data.Dataset.from_generator(lambda: test_mat_a, tf.int64, output_shapes=[None])
+ds_a = tf.data.Dataset.from_generator(lambda: train_a, tf.int64, output_shapes=[None])
 ds_a = ds_a.padded_batch(
     BATCH_SIZE,
     padded_shapes=[-1])
