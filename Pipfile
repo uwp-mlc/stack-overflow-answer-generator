@@ -9,7 +9,7 @@ verify_ssl = true
 tensorflow-datasets = "*"
 matplotlib = "*"
 google-cloud-bigquery = "*"
-pymongo = "*"
+pymongo = "==3.4.0"
 tensorflow = "*"
 
 [requires]
