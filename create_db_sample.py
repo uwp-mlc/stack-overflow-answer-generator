@@ -75,12 +75,13 @@ if __name__ == "__main__":
     queue = []  # a queue for our current worker async results, a deque would be faster
 
     def pool_job(q, count):
-        db_client.fsync(1, lock=True)
-        # collection.insert_one({"_id": count, "claim": get_id()})
-        # if collection.find({"_id": count}).next()['claim'] != get_id():
-        #     return
-        # else:
-        #     print(count)
+        collection.insert_one({"_id": count, "claim": get_id()})
+        db_client.fsync(lock=True)
+        if collection.find({"_id": count}).next()['claim'] != get_id():
+            return
+        else:
+            print(count)
+        db_client.unlock()
 
         queue.append(pool.apply_async(
             work, [q[2].encode(), q[5].encode(), tokenizer_q, tokenizer_a]))
@@ -97,12 +98,18 @@ if __name__ == "__main__":
                          "a_id": q[3],
                          "answer": answer}
                 collection.replace_one({'_id':count},  entry, upsert=False)
-        db_client.fsync(1, lock=False)
 
+    db_client.unlock()
+    print(collection.find(sort=[("_id", -1)]).next()["_id"])
     for q in query_job.result():
         count += 1
         if count % 1000 == 0:
             print(count)
+
+        while count < collection.find_one(sort=[("_id", -1)])["_id"]:
+            print
+            continue
+    
         if collection.count({"_id": count}, limit = 1) == 0:
             pool_job(q, count)
 
