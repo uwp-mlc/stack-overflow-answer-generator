@@ -12,6 +12,10 @@ db = db_client['tokenized_strings']
 collection = db['tokenized_collection']
 collection.delete_many({})
 
+import uuid
+
+def get_id():
+    return uuid.getnode()
 
 def work(q, a, tokenizer_q, tokenizer_a):
     return tokenizer_q.encode(q), tokenizer_a.encode(a)
@@ -72,9 +76,10 @@ if __name__ == "__main__":
     queue = []  # a queue for our current worker async results, a deque would be faster
 
     def pool_job(q, count):
-        collection.insert_one({"_id": count, "claim": client})
-        if collection.find({"_id": count}).next()['claim'] != client:
+        collection.insert_one({"_id": count, "claim": get_id()})
+        if collection.find({"_id": count}).next()['claim'] != get_id():
             return
+        else:
 
         queue.append(pool.apply_async(
             work, [q[2].encode(), q[5].encode(), tokenizer_q, tokenizer_a]))
