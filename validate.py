@@ -68,9 +68,9 @@ if LOAD_TOKENIZERS:
     # print("Finished loading tokenizers")
 
     print("Loading question tokenizer...")
-    tokenizer_q = pickle.load(open("./200k/tokenizer_q.pkl", 'rb'))
+    tokenizer_q = pickle.load(open("./1m/tokenizer_q.pkl", 'rb'))
     print("Loading answer tokenizer...")
-    tokenizer_a = pickle.load(open("./200k/tokenizer_a.pkl", 'rb'))
+    tokenizer_a = pickle.load(open("./1m/tokenizer_a.pkl", 'rb'))
     print("Finished loading tokenizers")
 
     sample_string = '<p>Transformer is awesome.</p>'
@@ -223,7 +223,7 @@ query = (
 # Executes the query
 query_job = client.query(query)
 
-for x in query_job.result():
-    print(translate(x[2]))
-    print (x[5])
-    break
+for i, x in enumerate(query_job.result()):
+    if i == 50:
+        print(translate(x[2]))
+        break

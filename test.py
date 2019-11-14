@@ -16,10 +16,13 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.abspath("./My Project 638
 
 from google.cloud import bigquery
 from optimizer import CustomSchedule
+from pymongo import MongoClient
 
 client = bigquery.Client()
 
-
+db_client = MongoClient('192.168.0.50', 27017)
+db = db_client['tokenized_strings']
+collection = db['tokenized_collection']
 
 # Query to join on answer ID and select id, title, body from both tables
 query = (
@@ -69,9 +72,9 @@ if LOAD_TOKENIZERS:
     # print("Finished loading tokenizers")
 
     print("Loading question tokenizer...")
-    tokenizer_q = pickle.load(open("./200k/tokenizer_q.pkl", 'rb'))
+    tokenizer_q = pickle.load(open("./1m/tokenizer_q.pkl", 'rb'))
     print("Loading answer tokenizer...")
-    tokenizer_a = pickle.load(open("./200k/tokenizer_a.pkl", 'rb'))
+    tokenizer_a = pickle.load(open("./1m/tokenizer_a.pkl", 'rb'))
     print("Finished loading tokenizers")
 
     sample_string = '<p>Transformer is awesome.</p>'
@@ -91,15 +94,26 @@ if LOAD_TOKENIZERS:
 else:
     print("Set to not load tokenizers")
 
-BATCH_SIZE = 64
 
 if LOAD_DATASETS:
     print("Loading question dataset...")
     
-    train_q = pickle.load(open("./questions.data", 'rb'))
+    if not os.path.exists('./questions.data'):
+        train_q = [x["question"] for x in collection.find()]
+        with open('questions.data', 'wb') as filehandle:
+                    # store the data as binary data stream
+            pickle.dump(train_q, filehandle)
+    else:
+        train_q = pickle.load(open("./questions.data", 'rb'))
     print("Loading answer dataset...")
-    train_a = pickle.load(open("./answers.data", 'rb'))
     
+    if not os.path.exists('./answers.data'):
+        train_a = [x["answer"] for x in collection.find()]
+        with open('answers.data', 'wb') as filehandle:
+                    # store the data as binary data stream
+            pickle.dump(train_a, filehandle)
+    else:
+        train_a = pickle.load(open("./answers.data", 'rb'))
     print("Finished loading datasets")
 
 else:
@@ -107,21 +121,23 @@ else:
 
 print(tokenizer_q.vocab_size)
 
+MAX_LENGTH = 200
 
-BUFFER_SIZE = 20000
-BATCH_SIZE = 64
+BATCH_SIZE = 24
+
+def filter_max_length(x, y, max_length=MAX_LENGTH):
+  return tf.logical_and(tf.size(x) <= max_length,
+                        tf.size(y) <= max_length)
 
 
 ds_q = tf.data.Dataset.from_generator(lambda: train_q, tf.int64, output_shapes=[None])
-ds_q = ds_q.padded_batch(
-    BATCH_SIZE,
-    padded_shapes=[-1])
 
 ds_a = tf.data.Dataset.from_generator(lambda: train_a, tf.int64, output_shapes=[None])
-ds_a = ds_a.padded_batch(
-    BATCH_SIZE,
-    padded_shapes=[-1])
 
+ds = tf.data.Dataset.zip((ds_q, ds_a))
+ds = ds.filter(filter_max_length).padded_batch(
+    BATCH_SIZE,
+    padded_shapes=([-1], [-1]))
 
 def encode(lang1, lang2):
     # lang1 = [tokenizer_q.vocab_size] + tokenizer_q.encode(
@@ -146,23 +162,6 @@ def tf_encode(q, a):
     # NOTE may need to remove [] on q and a
     return tf.py_function(encode, [a, q], [tf.int64, tf.int64])
 
-
-pos_encoding = positional_encoding(50, 512)
-print (pos_encoding.shape)
-
-
-
-x = tf.constant([[7, 6, 0, 0, 1], [1, 2, 3, 0, 0], [0, 0, 0, 4, 5]])
-print(create_padding_mask(x))
-
-
-
-x = tf.random.uniform((1, 3))
-temp = create_look_ahead_mask(x.shape[1])
-print(temp)
-
-
-
 def print_out(q, k, v):
     temp_out, temp_attn = scaled_dot_product_attention(
         q, k, v, None)
@@ -170,102 +169,6 @@ def print_out(q, k, v):
     print (temp_attn)
     print ('Output is:')
     print (temp_out)
-
-np.set_printoptions(suppress=True)
-
-temp_k = tf.constant([[10,0,0],
-                      [0,10,0],
-                      [0,0,10],
-                      [0,0,10]], dtype=tf.float32)  # (4, 3)
-
-temp_v = tf.constant([[   1,0],
-                      [  10,0],
-                      [ 100,5],
-                      [1000,6]], dtype=tf.float32)  # (4, 2)
-
-# This `query` aligns with the second `key`,
-# so the second `value` is returned.
-temp_q = tf.constant([[0, 10, 0]], dtype=tf.float32)  # (1, 3)
-print_out(temp_q, temp_k, temp_v)
-
-# This query aligns with a repeated key (third and fourth), 
-# so all associated values get averaged.
-temp_q = tf.constant([[0, 0, 10]], dtype=tf.float32)  # (1, 3)
-print_out(temp_q, temp_k, temp_v)
-
-# This query aligns equally with the first and second key, 
-# so their values get averaged.
-temp_q = tf.constant([[10, 10, 0]], dtype=tf.float32)  # (1, 3)
-print_out(temp_q, temp_k, temp_v)
-
-temp_q = tf.constant([[0, 0, 10], [0, 10, 0], [10, 10, 0]], dtype=tf.float32)  # (3, 3)
-print_out(temp_q, temp_k, temp_v)
-
-
-
-
-temp_mha = MultiHeadAttention(d_model=512, num_heads=8)
-y = tf.random.uniform((1, 60, 512))  # (batch_size, encoder_sequence, d_model)
-out, attn = temp_mha(y, k=y, q=y, mask=None)
-print(out.shape, attn.shape)
-
-
-
-sample_ffn = point_wise_feed_forward_network(512, 2048)
-print(sample_ffn(tf.random.uniform((64, 50, 512))).shape)
-
-sample_encoder_layer = EncoderLayer(512, 8, 2048)
-
-sample_encoder_layer_output = sample_encoder_layer(
-    tf.random.uniform((64, 43, 512)), False, None)
-
-print(sample_encoder_layer_output.shape)  # (batch_size, input_seq_len, d_model)
-
-sample_decoder_layer = DecoderLayer(512, 8, 2048)
-
-sample_decoder_layer_output, _, _ = sample_decoder_layer(
-    tf.random.uniform((64, 50, 512)), sample_encoder_layer_output, 
-    False, None, None)
-
-print(sample_decoder_layer_output.shape)  # (batch_size, target_seq_len, d_model)
-
-
-sample_encoder = Encoder(num_layers=2, d_model=512, num_heads=8, 
-                         dff=2048, input_vocab_size=8500,
-                         maximum_position_encoding=10000)
-temp_input = tf.random.uniform((64, 62), dtype=tf.int64, minval=0, maxval=200)
-
-sample_encoder_output = sample_encoder(temp_input, training=False, mask=None)
-
-print (sample_encoder_output.shape)  # (batch_size, input_seq_len, d_model)
-
-sample_decoder = Decoder(num_layers=2, d_model=512, num_heads=8, 
-                         dff=2048, target_vocab_size=8000,
-                         maximum_position_encoding=5000)
-temp_input = tf.random.uniform((64, 26), dtype=tf.int64, minval=0, maxval=200)
-
-output, attn = sample_decoder(temp_input, 
-                              enc_output=sample_encoder_output, 
-                              training=False,
-                              look_ahead_mask=None, 
-                              padding_mask=None)
-
-print(output.shape, attn['decoder_layer2_block2'].shape)
-
-sample_transformer = Transformer(
-    num_layers=2, d_model=512, num_heads=8, dff=2048, 
-    input_vocab_size=8500, target_vocab_size=8000, 
-    pe_input=10000, pe_target=6000)
-
-temp_input = tf.random.uniform((64, 38), dtype=tf.int64, minval=0, maxval=200)
-temp_target = tf.random.uniform((64, 36), dtype=tf.int64, minval=0, maxval=200)
-
-fn_out, _ = sample_transformer(temp_input, temp_target, training=False, 
-                               enc_padding_mask=None, 
-                               look_ahead_mask=None,
-                               dec_padding_mask=None)
-
-print(fn_out.shape)  # (batch_size, tar_seq_len, target_vocab_size)
 
 num_layers = 4
 d_model = 128
@@ -351,7 +254,6 @@ train_step_signature = [
 def train_step(inp, tar):
   tar_inp = tar[:, :-1]
   tar_real = tar[:, 1:]
-  
   enc_padding_mask, combined_mask, dec_padding_mask = create_masks(inp, tar_inp)
   
   with tf.GradientTape() as tape:
@@ -368,52 +270,18 @@ def train_step(inp, tar):
     train_loss(loss)
     train_accuracy(tar_real, predictions)
 
-for epoch in range(EPOCHS):
-    start = time.time()
-    
-    train_loss.reset_states()
-    train_accuracy.reset_states()
-    
-    # inp -> portuguese, tar -> english
-    for (batch, (inp, tar)) in enumerate(zip(ds_q, ds_a)):
-        
-        # inp, tar = tf_encode(query[2].encode(), query[5].encode())
-        
-        # inp and tar must be
-#         (<tf.Tensor: id=207688, shape=(64, 40), dtype=int64, numpy=
-#  array([[8214, 1259,    5, ...,    0,    0,    0],
-#         [8214,  299,   13, ...,    0,    0,    0],
-#         [8214,   59,    8, ...,    0,    0,    0],
-#         ...,
-#         [8214,   95,    3, ...,    0,    0,    0],
-#         [8214, 5157,    1, ...,    0,    0,    0],
-#         [8214, 4479, 7990, ...,    0,    0,    0]])>,
-#  <tf.Tensor: id=207689, shape=(64, 40), dtype=int64, numpy=
-#  array([[8087,   18,   12, ...,    0,    0,    0],
-#         [8087,  634,   30, ...,    0,    0,    0],
-#         [8087,   16,   13, ...,    0,    0,    0],
-#         ...,
-#         [8087,   12,   20, ...,    0,    0,    0],
-#         [8087,   17, 4981, ...,    0,    0,    0],
-#         [8087,   12, 5453, ...,    0,    0,    0]])>)
-        train_step(inp, tar)
-        
-        if batch % 50 == 0:
-            print ('Epoch {} Batch {} Loss {:.4f} Accuracy {:.4f}'.format(
-                epoch + 1, batch, train_loss.result(), train_accuracy.result()))
-        
-    if (epoch + 1) % 5 == 0:
-        ckpt_save_path = ckpt_manager.save()
-        print ('Saving checkpoint for epoch {} at {}'.format(epoch+1,
-                                                            ckpt_save_path))
+if __name__ == "__main__":
+    for epoch in range(EPOCHS):
+        start = time.time()
         
         train_loss.reset_states()
         train_accuracy.reset_states()
         
         # inp -> portuguese, tar -> english
-        for (batch, (query)) in enumerate(query_job.result()):
+        for (batch, (inp, tar)) in enumerate(ds):
             
-            inp, tar = tf_encode(train_q, train_a)
+            # inp, tar = tf_encode(query[2].encode(), query[5].encode())
+            
             # inp and tar must be
     #         (<tf.Tensor: id=207688, shape=(64, 40), dtype=int64, numpy=
     #  array([[8214, 1259,    5, ...,    0,    0,    0],
@@ -431,7 +299,10 @@ for epoch in range(EPOCHS):
     #         [8087,   12,   20, ...,    0,    0,    0],
     #         [8087,   17, 4981, ...,    0,    0,    0],
     #         [8087,   12, 5453, ...,    0,    0,    0]])>)
-            train_step(inp, tar)
+            try:
+                train_step(inp, tar)
+            except Exception:
+                print(inp)
             
             if batch % 50 == 0:
                 print ('Epoch {} Batch {} Loss {:.4f} Accuracy {:.4f}'.format(
@@ -442,9 +313,8 @@ for epoch in range(EPOCHS):
             print ('Saving checkpoint for epoch {} at {}'.format(epoch+1,
                                                                 ckpt_save_path))
             
-        print ('Epoch {} Loss {:.4f} Accuracy {:.4f}'.format(epoch + 1, 
-                                                        train_loss.result(), 
-                                                        train_accuracy.result()))
+            train_loss.reset_states()
+            train_accuracy.reset_states()
 
-        print ('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
+            print ('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
 

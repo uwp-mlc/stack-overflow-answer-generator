@@ -5,9 +5,9 @@ from multiprocessing import Pool
 
 from pymongo import MongoClient
 
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.abspath("./My Project 63888-5efd88711631.json")
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.abspath("./My Project 63888-29e738f88cfa.json")
 client = bigquery.Client()
-db_client = MongoClient('184.100.31.146', 27017)
+db_client = MongoClient('192.168.0.50', 27017)
 db = db_client['tokenized_strings']
 collection = db['tokenized_collection']
 
@@ -71,18 +71,10 @@ if __name__ == "__main__":
     questions = []
     answers = []
 
-    pool = Pool(processes=4)  # lets use just 2 workers
+    pool = Pool(processes=8)  # lets use just 2 workers
     queue = []  # a queue for our current worker async results, a deque would be faster
 
     def pool_job(q, count):
-        collection.insert_one({"_id": count, "claim": get_id()})
-        db_client.fsync(lock=True)
-        if collection.find({"_id": count}).next()['claim'] != get_id():
-            return
-        else:
-            print(count)
-        db_client.unlock()
-
         queue.append(pool.apply_async(
             work, [q[2].encode(), q[5].encode(), tokenizer_q, tokenizer_a]))
         while len(queue) >= pool._processes:
@@ -93,25 +85,27 @@ if __name__ == "__main__":
                 queue.append(process)  # add it back to the queue
             else:
                 question, answer = process.get()
-                entry = {"q_id": q[0],
+                entry = {'_id':count,
+                         "q_id": q[0],
                          "question": question,
                          "a_id": q[3],
                          "answer": answer}
-                collection.replace_one({'_id':count},  entry, upsert=False)
+                collection.insert_one(entry)
 
-    db_client.unlock()
-    print(collection.find(sort=[("_id", -1)]).next()["_id"])
+    #print(collection.find(sort=[("_id", 1)]).next()["_id"])
     for q in query_job.result():
         count += 1
         if count % 1000 == 0:
             print(count)
 
-        while count < collection.find_one(sort=[("_id", -1)])["_id"]:
-            print
-            continue
+        # while count < collection.find_one(sort=[("_id", -1)])["_id"]:
+        #     print(count)
+        #     continue
     
         if collection.count({"_id": count}, limit = 1) == 0:
             pool_job(q, count)
+        else:
+            print(count)
 
     while len(queue) > 0:
         process = queue.pop(0)  # grab a process response from the top
