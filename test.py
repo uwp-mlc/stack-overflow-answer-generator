@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 import os, pickle
 from zipfile import ZipFile
 
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.abspath("./My Project 63888-29e738f88cfa.json")
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.abspath("./My Project 63888-ec2f4b27608f.json")
 
 from google.cloud import bigquery
 from optimizer import CustomSchedule
@@ -20,7 +20,7 @@ from pymongo import MongoClient
 
 client = bigquery.Client()
 
-db_client = MongoClient('192.168.0.50', 27017)
+db_client = MongoClient('localhost', 27017)
 db = db_client['tokenized_strings']
 collection = db['tokenized_collection']
 
@@ -91,76 +91,56 @@ if LOAD_TOKENIZERS:
 
         print ('{} ----> {}'.format(ts, tokenizer_q.decode([ts])))
 
-else:
-    print("Set to not load tokenizers")
-
-
-if LOAD_DATASETS:
-    print("Loading question dataset...")
-    
-    if not os.path.exists('./questions.data'):
-        train_q = [x["question"] for x in collection.find()]
-        with open('questions.data', 'wb') as filehandle:
-                    # store the data as binary data stream
-            pickle.dump(train_q, filehandle)
     else:
-        train_q = pickle.load(open("./questions.data", 'rb'))
-    print("Loading answer dataset...")
-    
-    if not os.path.exists('./answers.data'):
-        train_a = [x["answer"] for x in collection.find()]
-        with open('answers.data', 'wb') as filehandle:
-                    # store the data as binary data stream
-            pickle.dump(train_a, filehandle)
+        print("Set to not load tokenizers")
+
+if __name__ == "__main__":
+    if LOAD_DATASETS:
+        print("Loading question dataset...")
+        
+        if not os.path.exists('./questions.data'):
+            train_q = [x["question"] for x in collection.find()]
+            with open('questions.data', 'wb') as filehandle:
+                        # store the data as binary data stream
+                pickle.dump(train_q, filehandle)
+        else:
+            train_q = pickle.load(open("./questions.data", 'rb'))
+        print("Loading answer dataset...")
+        
+        if not os.path.exists('./answers.data'):
+            train_a = [x["answer"] for x in collection.find()]
+            with open('answers.data', 'wb') as filehandle:
+                        # store the data as binary data stream
+                pickle.dump(train_a, filehandle)
+        else:
+            train_a = pickle.load(open("./answers.data", 'rb'))
+        print("Finished loading datasets")
+
     else:
-        train_a = pickle.load(open("./answers.data", 'rb'))
-    print("Finished loading datasets")
+        print("Set to not load datasets")
 
-else:
-    print("Set to not load datasets")
-
-print(tokenizer_q.vocab_size)
+    print(tokenizer_q.vocab_size)
 
 MAX_LENGTH = 200
 
 BATCH_SIZE = 24
+BUFFER_SIZE = 20000
 
 def filter_max_length(x, y, max_length=MAX_LENGTH):
   return tf.logical_and(tf.size(x) <= max_length,
                         tf.size(y) <= max_length)
 
-
-ds_q = tf.data.Dataset.from_generator(lambda: train_q, tf.int64, output_shapes=[None])
-
-ds_a = tf.data.Dataset.from_generator(lambda: train_a, tf.int64, output_shapes=[None])
-
-ds = tf.data.Dataset.zip((ds_q, ds_a))
-ds = ds.filter(filter_max_length).padded_batch(
-    BATCH_SIZE,
-    padded_shapes=([-1], [-1]))
-
 def encode(lang1, lang2):
-    # lang1 = [tokenizer_q.vocab_size] + tokenizer_q.encode(
-    #     lang1.numpy()) + [tokenizer_q.vocab_size+1]
 
-    # lang2 = [tokenizer_a.vocab_size] + tokenizer_a.encode(
-    #     lang2.numpy()) + [tokenizer_a.vocab_size+1]
+    lang1 = [tokenizer_q.vocab_size] + list(lang1.numpy()) + [tokenizer_q.vocab_size+1]
 
-    lang1 = [tokenizer_q.vocab_size] + lang1 + [tokenizer_q.vocab_size+1]
-
-    lang2 = [tokenizer_a.vocab_size] + lang2 + [tokenizer_a.vocab_size+1]
+    lang2 = [tokenizer_a.vocab_size] + list(lang2.numpy()) + [tokenizer_a.vocab_size+1]
     
     return lang1, lang2
 
-MAX_LENGTH = 40
-
-def filter_max_length(x, y, max_length=MAX_LENGTH):
-    return tf.logical_and(tf.size(x) <= max_length,
-                            tf.size(y) <= max_length)
-
 def tf_encode(q, a):
     # NOTE may need to remove [] on q and a
-    return tf.py_function(encode, [a, q], [tf.int64, tf.int64])
+    return tf.py_function(encode, [q, a], [tf.int64, tf.int64])
 
 def print_out(q, k, v):
     temp_out, temp_attn = scaled_dot_product_attention(
@@ -169,6 +149,22 @@ def print_out(q, k, v):
     print (temp_attn)
     print ('Output is:')
     print (temp_out)
+
+ds_q = tf.data.Dataset.from_generator(lambda: train_q, tf.int64, output_shapes=[None])
+
+ds_a = tf.data.Dataset.from_generator(lambda: train_a, tf.int64, output_shapes=[None])
+
+ds = tf.data.Dataset.zip((ds_q, ds_a))
+ds = ds.map(tf_encode)
+ds = ds.cache()
+ds = ds.filter(filter_max_length)
+ds = ds.shuffle(BUFFER_SIZE).padded_batch(
+    BATCH_SIZE,
+    padded_shapes=([-1], [-1]))
+ds = ds.prefetch(tf.data.experimental.AUTOTUNE)
+
+
+
 
 num_layers = 4
 d_model = 128
@@ -237,7 +233,8 @@ if ckpt_manager.latest_checkpoint:
     ckpt.restore(ckpt_manager.latest_checkpoint)
     print ('Latest checkpoint restored!!')
 
-EPOCHS = 20
+
+EPOCHS = 100
 
 # The @tf.function trace-compiles train_step into a TF graph for faster
 # execution. The function specializes to the precise shape of the argument
@@ -299,10 +296,8 @@ if __name__ == "__main__":
     #         [8087,   12,   20, ...,    0,    0,    0],
     #         [8087,   17, 4981, ...,    0,    0,    0],
     #         [8087,   12, 5453, ...,    0,    0,    0]])>)
-            try:
-                train_step(inp, tar)
-            except Exception:
-                print(inp)
+
+            train_step(inp, tar)
             
             if batch % 50 == 0:
                 print ('Epoch {} Batch {} Loss {:.4f} Accuracy {:.4f}'.format(

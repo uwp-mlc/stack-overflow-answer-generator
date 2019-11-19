@@ -12,13 +12,11 @@ import matplotlib.pyplot as plt
 import os, pickle
 from zipfile import ZipFile
 
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.abspath("./My Project 63888-29e738f88cfa.json")
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.abspath("./My Project 63888-ec2f4b27608f.json")
 
 from google.cloud import bigquery
 from optimizer import CustomSchedule
-from test import create_masks
-
-MAX_LENGTH = 40
+from test import create_masks, transformer, MAX_LENGTH
 
 client = bigquery.Client()
 
@@ -122,11 +120,11 @@ train_loss = tf.keras.metrics.Mean(name='train_loss')
 train_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(
     name='train_accuracy')
 
-transformer = Transformer(num_layers, d_model, num_heads, dff,
-                          input_vocab_size, target_vocab_size, 
-                          pe_input=input_vocab_size, 
-                          pe_target=target_vocab_size,
-                          rate=dropout_rate)
+# transformer = Transformer(num_layers, d_model, num_heads, dff,
+#                           input_vocab_size, target_vocab_size, 
+#                           pe_input=input_vocab_size, 
+#                           pe_target=target_vocab_size,
+#                           rate=dropout_rate)
 
 def evaluate(inp_sentence):
     start_token = [tokenizer_q.vocab_size]
@@ -140,7 +138,7 @@ def evaluate(inp_sentence):
     # english start token.
     decoder_input = [tokenizer_a.vocab_size]
     output = tf.expand_dims(decoder_input, 0)
-        
+
     for i in range(MAX_LENGTH):
         enc_padding_mask, combined_mask, dec_padding_mask = create_masks(
             encoder_input, output)
@@ -207,8 +205,8 @@ def translate(sentence, plot=''):
     predicted_sentence = tokenizer_a.decode([i for i in result 
                                                 if i < tokenizer_a.vocab_size])  
 
-    print('Input: {}'.format(sentence))
-    print('Predicted translation: {}'.format(predicted_sentence))
+    print(f'-----Input-----\n{sentence}')
+    print(f'-----Predicted translation-----\n{predicted_sentence}')
     
     if plot:
         plot_attention_weights(attention_weights, sentence, result, plot)
@@ -223,7 +221,9 @@ query = (
 # Executes the query
 query_job = client.query(query)
 
+# 55
 for i, x in enumerate(query_job.result()):
-    if i == 50:
+    if i == 10:
         print(translate(x[2]))
+        print(f"-----Actual-----\n{x[5]}")
         break

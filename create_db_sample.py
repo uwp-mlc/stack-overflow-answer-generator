@@ -5,9 +5,9 @@ from multiprocessing import Pool
 
 from pymongo import MongoClient
 
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.abspath("./My Project 63888-29e738f88cfa.json")
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.abspath("./My Project 63888-ec2f4b27608f.json")
 client = bigquery.Client()
-db_client = MongoClient('192.168.0.50', 27017)
+db_client = MongoClient('localhost', 27017)
 db = db_client['tokenized_strings']
 collection = db['tokenized_collection']
 
@@ -59,7 +59,7 @@ if __name__ == "__main__":
         "SELECT questions.id as `q_id`, questions.title as `q_title`, questions.body as `q_body`, answers.id as `a_id`, answers.title as `a_title`, answers.body as `a_body` FROM `bigquery-public-data.stackoverflow.posts_questions` AS `questions` "
         "INNER JOIN `bigquery-public-data.stackoverflow.posts_answers` AS `answers` "
         "ON questions.accepted_answer_id = answers.id "
-        "LIMIT 1000000"
+        "LIMIT 10000 000"
     )
 
     client = bigquery.Client()
@@ -93,7 +93,7 @@ if __name__ == "__main__":
                 collection.insert_one(entry)
 
     #print(collection.find(sort=[("_id", 1)]).next()["_id"])
-    for q in query_job.result():
+    for q in query_job.result(page_size=4000):
         count += 1
         if count % 1000 == 0:
             print(count)
