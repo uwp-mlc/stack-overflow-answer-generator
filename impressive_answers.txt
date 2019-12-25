@@ -1,0 +1,193 @@
+-----Input-----
+<p>I am running into a problem because I have a fairly complex component that renders a list of items. The list of items is taken directly from the redux state tree. I want to have 2 separate routes that reuse this same component, but each of them will connect to a different list from the state tree.</p>
+
+<p>Here is a simplified example:</p>
+
+<p>Starting with the state tree:</p>
+
+<pre><code>state = {
+    fruits: ['apple', 'banana', 'grape', 'pear'],
+    vegetables: ['celery', 'carrot', 'cucumber']
+}
+</code></pre>
+
+<p>and a simple listing component </p>
+
+<pre><code>class ListView extends Component {
+  render() {
+    return (
+      &lt;div&gt;
+        {this.props.items.map((item, index) =&gt;
+          &lt;div key={index}&gt;{item}&lt;/div&gt;
+        )}
+      &lt;/div&gt;
+    )
+  }
+}
+
+function mapStateToProps(state) {
+  return {
+    items: state.fruits
+  }
+}
+
+export default connect(mapStateToProps)(ListView)
+</code></pre>
+
+<p>The higher level App component looks like this:</p>
+
+<pre><code>class App extends Component {
+  render() {
+    return (
+      &lt;div&gt;
+        {this.props.children}
+      &lt;/div&gt;
+    )
+  }
+}
+
+export default connect()(App)
+</code></pre>
+
+<p>And the routes look like this:</p>
+
+<pre><code>  &lt;Route path='/' component={App}&gt;
+    &lt;IndexRedirect to='fruits' /&gt;
+    &lt;Route path='fruits' component={ListView} /&gt;
+    &lt;Route path='vegetables' component={ListView} /&gt;
+  &lt;/Route&gt;
+</code></pre>
+
+<p>So right now the ListView component is connected to the fruits part of the redux state. However I would like to utilize the route structure here so '/fruits' and '/vegetables' will both use the same component, but '/fruits' will list the fruits while '/vegetables' will list the vegetables. </p>
+
+<p>The obvious work around is to create a completely new and identical component class and change the mapStateToProps method to connect to the vegetables array.</p>
+
+<p>Is there a way to reuse this component but have access to different parts of the state tree in each?</p>
+-----Predicted translation-----
+<p>You can use the <code>render</code> function to get the props of the props to the props of the components:</p>
+
+<pre><code>render() {
+    render() {
+        render() {
+        render();
+        render() {
+        render();
+        render();
+        render() {
+        render();
+        render();
+        render();
+        render();
+        render();
+        render();
+        render(render, render);
+    }
+
+    render(render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render, render     
+None
+-----Actual-----
+<p>From your ListView, you could export both FruitsList and VeggiesList as separate components, then display the correct one based on route.</p>
+
+<pre><code>class ListView extends Component {
+  render() {
+    return (
+      &lt;div&gt;
+        {this.props.items.map((item, index) =&gt;
+          &lt;div key={index}&gt;{item}&lt;/div&gt;
+        )}
+      &lt;/div&gt;
+    )
+  }
+}
+
+function mapStateToPropsVeggies(state) {
+  return {
+    items: state.veggies
+  }
+}
+
+function mapStateToPropsFruits(state) {
+  return {
+    items: state.fruits
+  }
+}
+
+const VeggiesList = connect(mapStateToPropsVeggies)(ListView);
+const FruitsList = connect(mapStateToPropsFruits)(ListView);
+
+export default ListView;
+export {
+    VeggiesList,
+    FruitsList
+};
+</code></pre>
+
+<p>Then update the router to:</p>
+
+<pre><code>&lt;Route path='/' component={App}&gt;
+  &lt;IndexRedirect to='fruits' /&gt;
+  &lt;Route path='fruits' component={FruitsList} /&gt;
+  &lt;Route path='vegetables' component={VeggiesList} /&gt;
+&lt;/Route&gt;
+</code></pre>
+
+\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+-----Input-----
+<p>For this dataframe
+df</p>
+
+<pre><code>   basketID  productCode
+0         1           23
+1         1           24
+2         1           25
+3         2           23
+4         3           23
+5         4           25
+6         5           24
+7         5           25
+</code></pre>
+
+<p>Gives as expected</p>
+
+<pre><code>(df['productCode']) == 23
+0     True
+1    False
+2    False
+3     True
+4     True
+5    False
+6    False
+7    False
+</code></pre>
+
+<p>But if I want both 23 and 1</p>
+
+<pre><code>(df['productCode']) == 23 &amp; (df['basketID'] == 1)
+0    False
+1    False
+2    False
+3    False
+4    False
+5    False
+6    False
+7    False
+</code></pre>
+
+<p>Everything is false.
+Why first line was not recognized?</p>
+-----Predicted translation-----
+<p>You can use <code>groupby</code> to get the values of the columns in the column list:</p>
+
+<pre><code>df.groupby('id').groupby('id').groupby('id').sum(df).sum()
+</code></pre>
+
+<p>Output:</p>
+
+<pre><code>0  1  1  1  2  2  2  2  2  2  2  2  2  2  2  2  2  2  2  2  2  2  2  2  2  2  2  2  2  2  2  2  2  3  2  2  2  2  2  3  3  3  3  3  3  3  3  3  3  3  3  3  4  4  4  4 
+ 4  4  4  4  4  4  4  4  4  4  4  4
+None
+-----Actual-----
+<p>You need <code>)</code> after <code>23</code> because operator precedence:</p>
+
+<pre><code>(df['productCode'] == 23) &amp; (df['basketID'] == 1)
+</code></pre>

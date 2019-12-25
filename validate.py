@@ -16,7 +16,7 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.abspath("./My Project 638
 
 from google.cloud import bigquery
 from optimizer import CustomSchedule
-from test import create_masks, transformer, MAX_LENGTH
+from train import create_masks, transformer, MAX_LENGTH
 
 client = bigquery.Client()
 
@@ -221,9 +221,14 @@ query = (
 # Executes the query
 query_job = client.query(query)
 
-# 55
-for i, x in enumerate(query_job.result()):
-    if i == 10:
-        print(translate(x[2]))
-        print(f"-----Actual-----\n{x[5]}")
-        break
+
+if __name__ == "__main__":
+    # translate("Your question here")
+
+    # uses bigquery to get question
+    # change i == x for different question
+    for i, x in enumerate(query_job.result()):
+        if i == 67:
+            print(translate(x['q_body']))
+            print(f"-----Actual-----\n{x['a_body']}")
+            break

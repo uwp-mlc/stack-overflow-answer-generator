@@ -65,34 +65,34 @@ tokenizer_q = None
 tokenizer_a = None
 
 if LOAD_TOKENIZERS:
-    # print("Loading question tokenizer...")
-    # tokenizer_q = pickle.load(ZipFile("./1m/tokenizer_q.zip").open("tokenizer_q.pkl", 'r'))
-    # print("Loading answer tokenizer...")
-    # tokenizer_a = pickle.load(ZipFile("./1m/tokenizer_a.zip").open("tokenizer_a.pkl", 'r'))
-    # print("Finished loading tokenizers")
+        # print("Loading question tokenizer...")
+        # tokenizer_q = pickle.load(ZipFile("./1m/tokenizer_q.zip").open("tokenizer_q.pkl", 'r'))
+        # print("Loading answer tokenizer...")
+        # tokenizer_a = pickle.load(ZipFile("./1m/tokenizer_a.zip").open("tokenizer_a.pkl", 'r'))
+        # print("Finished loading tokenizers")
 
-    print("Loading question tokenizer...")
-    tokenizer_q = pickle.load(open("./1m/tokenizer_q.pkl", 'rb'))
-    print("Loading answer tokenizer...")
-    tokenizer_a = pickle.load(open("./1m/tokenizer_a.pkl", 'rb'))
-    print("Finished loading tokenizers")
+        print("Loading question tokenizer...")
+        tokenizer_q = pickle.load(open("./1m/tokenizer_q.pkl", 'rb'))
+        print("Loading answer tokenizer...")
+        tokenizer_a = pickle.load(open("./1m/tokenizer_a.pkl", 'rb'))
+        print("Finished loading tokenizers")
 
-    sample_string = '<p>Transformer is awesome.</p>'
+        sample_string = '<p>Transformer is awesome.</p>'
 
-    tokenized_string = tokenizer_q.encode(sample_string)
-    print ('Tokenized string is {}'.format(tokenized_string))
+        tokenized_string = tokenizer_q.encode(sample_string)
+        print ('Tokenized string is {}'.format(tokenized_string))
 
-    original_string = tokenizer_q.decode(tokenized_string)
-    print ('The original string: {}'.format(original_string))
+        original_string = tokenizer_q.decode(tokenized_string)
+        print ('The original string: {}'.format(original_string))
 
-    assert original_string == sample_string
+        assert original_string == sample_string
 
-    for ts in tokenized_string:
+        for ts in tokenized_string:
 
-        print ('{} ----> {}'.format(ts, tokenizer_q.decode([ts])))
+            print ('{} ----> {}'.format(ts, tokenizer_q.decode([ts])))
 
-    else:
-        print("Set to not load tokenizers")
+        else:
+            print("Set to not load tokenizers")
 
 if __name__ == "__main__":
     if LOAD_DATASETS:
@@ -303,7 +303,7 @@ if __name__ == "__main__":
                 print ('Epoch {} Batch {} Loss {:.4f} Accuracy {:.4f}'.format(
                     epoch + 1, batch, train_loss.result(), train_accuracy.result()))
             
-        if (epoch + 1) % 5 == 0:
+        if (epoch + 1) % 1 == 0:
             ckpt_save_path = ckpt_manager.save()
             print ('Saving checkpoint for epoch {} at {}'.format(epoch+1,
                                                                 ckpt_save_path))
